@@ -87,7 +87,6 @@ perfil_objetivo = st.sidebar.selectbox(
     ]
 )
 
-# Sugerir notas según el perfil seleccionado
 sabores_sugeridos = {
     "Acidez Brillante y Complejidad Floral (Tueste Claro)": "Jazmín, Bergamota, Limón, Durazno blanco",
     "Balance Medio / Dulzor y Frutas Redondas (Tueste Medio)": "Panela, Manzana roja, Avellana, Caramelo",
@@ -111,11 +110,10 @@ modo_calculo = st.sidebar.radio(
 )
 
 # ---------------------------------------------------------
-# GENERADOR DE PRESETS DE RECETAS SEGÚN EL PERFIL ELEGIDO
+# GENERADOR DE PRESETS CON COLUMNA DE TEMPERATURA INCLUIDA
 # ---------------------------------------------------------
 def obtener_preset_perfil(perfil):
     if "Acidez Brillante" in perfil:
-        # Tueste más rápido, gas alto inicial, corte rápido tras 1st Crack
         return {
             "Minuto": [0.0, 1.0, 2.0, 3.0, 4.0, 4.5, 5.0, 5.8, 6.5, 7.2, 8.0, 8.6, 9.2, 9.8],
             "Fase / Hito SCA": [
@@ -123,13 +121,13 @@ def obtener_preset_perfil(perfil):
                 "06. Amarillo", "07. In. Maillard", "08. Aromas", "09. Carameliz.",
                 "10. Pre-Crack", "11. Presión Alta", "12. 1st Crack", "13. DTR", "14. Drop"
             ],
+            "Temp Grano (°C)": [188.1, 92.5, 110.0, 128.0, 142.0, 150.0, 158.0, 170.0, 180.0, 188.0, 194.0, 198.0, 202.0, 205.0],
             "Color del Grano": ["Verde", "Verde C.", "Verde M.", "Amarillo V.", "Amarillo P.", "Amarillo D.", "Canela C.", "Marrón A.", "Marrón P.", "Marrón M.", "Marrón I.", "Marrón City", "Marrón City", "Marrón Claro"],
             "RPM Tambor": [63]*14,
             "Flujo Aire (%)": [35, 35, 35, 40, 45, 50, 55, 60, 65, 70, 75, 80, 85, 90],
             "Potencia Gas (%)": [85, 85, 85, 80, 75, 70, 65, 55, 45, 35, 25, 20, 15, 10]
         }
     elif "Cuerpo Denso" in perfil:
-        # Tueste más largo, desarrollo de Maillard prolongado
         return {
             "Minuto": [0.0, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0, 10.8, 11.8, 12.8],
             "Fase / Hito SCA": [
@@ -137,13 +135,13 @@ def obtener_preset_perfil(perfil):
                 "06. Amarillo", "07. In. Maillard", "08. Aromas", "09. Carameliz.",
                 "10. Pre-Crack", "11. Presión Alta", "12. 1st Crack", "13. DTR", "14. Drop"
             ],
+            "Temp Grano (°C)": [188.1, 90.0, 105.0, 120.0, 134.0, 148.0, 160.0, 172.0, 182.0, 192.0, 200.0, 204.0, 210.0, 214.0],
             "Color del Grano": ["Verde", "Verde C.", "Verde M.", "Amarillo V.", "Amarillo P.", "Amarillo D.", "Canela C.", "Marrón A.", "Marrón P.", "Marrón M.", "Marrón I.", "Marrón City", "Marrón Full City", "Marrón Oscuro"],
             "RPM Tambor": [60]*14,
             "Flujo Aire (%)": [25, 25, 30, 30, 35, 40, 45, 50, 55, 60, 65, 70, 75, 80],
             "Potencia Gas (%)": [75, 75, 75, 70, 70, 65, 60, 55, 50, 45, 35, 30, 25, 15]
         }
     else:
-        # Perfil Estándar / Balanceado / Expresso
         return {
             "Minuto": [0.0, 1.0, 2.0, 3.0, 4.0, 4.5, 5.0, 6.0, 7.0, 8.0, 9.0, 9.75, 10.5, 11.5],
             "Fase / Hito SCA": [
@@ -151,6 +149,7 @@ def obtener_preset_perfil(perfil):
                 "06. Amarillo", "07. In. Maillard", "08. Aromas", "09. Carameliz.",
                 "10. Pre-Crack", "11. Presión Alta", "12. 1st Crack", "13. DTR", "14. Drop"
             ],
+            "Temp Grano (°C)": [188.1, 91.0, 108.0, 125.0, 138.0, 145.0, 152.0, 165.0, 176.0, 186.0, 195.0, 200.0, 205.0, 210.0],
             "Color del Grano": ["Verde", "Verde C.", "Verde M.", "Amarillo V.", "Amarillo P.", "Amarillo D.", "Canela C.", "Marrón A.", "Marrón P.", "Marrón M.", "Marrón I.", "Marrón City", "Marrón City+", "Marrón Choc."],
             "RPM Tambor": [61, 61, 61, 61, 61, 61, 63, 63, 65, 65, 66, 66, 66, 66],
             "Flujo Aire (%)": [30, 30, 30, 30, 40, 40, 50, 50, 60, 60, 70, 80, 85, 90],
@@ -170,7 +169,7 @@ df_editado = st.data_editor(
     df_base,
     num_rows="dynamic",
     use_container_width=True,
-    key=f"editor_{perfil_objetivo}", # Key para forzar recarga al cambiar selector
+    key=f"editor_{perfil_objetivo}",
     column_config={
         "Minuto": st.column_config.NumberColumn("Minuto", format="%.2f"),
         "Temp Grano (°C)": st.column_config.NumberColumn("BT (°C)", format="%.1f"),
@@ -180,16 +179,27 @@ df_editado = st.data_editor(
     }
 )
 
-# PROCESAMIENTO SEGÚN MODO SELECCIONADO
+# ---------------------------------------------------------
+# PROCESAMIENTO ROBUSTO SEGÚN MODO SELECCIONADO
+# ---------------------------------------------------------
 if "Simulador" in modo_calculo:
     df_procesado = simular_curva_termodinamica(df_editado, temp_carga, rpm_objetivo)
 else:
     df_procesado = df_editado.copy()
+    
+    # Garantizar que la columna exista para evitar KeyError
+    if "Temp Grano (°C)" not in df_procesado.columns:
+        df_procesado["Temp Grano (°C)"] = 100.0
+        
     rors = ["-", "TP"]
     for i in range(2, len(df_procesado)):
-        dt = float(df_procesado.loc[i, "Minuto"]) - float(df_procesado.loc[i-1, "Minuto"])
-        dtemp = float(df_procesado.loc[i, "Temp Grano (°C)"]) - float(df_procesado.loc[i-1, "Temp Grano (°C)"])
-        rors.append(round(dtemp / dt, 1) if dt > 0 else 0.0)
+        try:
+            dt = float(df_procesado.loc[i, "Minuto"]) - float(df_procesado.loc[i-1, "Minuto"])
+            dtemp = float(df_procesado.loc[i, "Temp Grano (°C)"]) - float(df_procesado.loc[i-1, "Temp Grano (°C)"])
+            rors.append(round(dtemp / dt, 1) if dt > 0 else 0.0)
+        except (KeyError, ValueError, TypeError):
+            rors.append(0.0)
+            
     df_procesado["RoR (°C/min)"] = rors
 
 # ---------------------------------------------------------
@@ -204,21 +214,22 @@ peso_tostado = col_p1.number_input("Peso Tostado Obtenido (g)", value=850.0, ste
 merma = round(((peso_carga - peso_tostado) / peso_carga) * 100, 2)
 col_p2.metric("Pérdida de Masa (Merma)", f"{merma} %")
 
-min_1st_crack = df_procesado.loc[df_procesado["Fase / Hito SCA"].str.contains("1st Crack|Primer Craqueo", na=False), "Minuto"]
-min_drop = df_procesado["Minuto"].iloc[-1]
+min_1st_crack = df_procesado.loc[df_procesado["Fase / Hito SCA"].astype(str).str.contains("1st Crack|Primer Craqueo", na=False), "Minuto"]
+min_drop = float(df_procesado["Minuto"].iloc[-1]) if len(df_procesado) > 0 else 1.0
 
 if not min_1st_crack.empty:
-    t_1st = min_1st_crack.values[0]
+    t_1st = float(min_1st_crack.values[0])
     dev_time = min_drop - t_1st
     dtr_val = round((dev_time / min_drop) * 100, 1) if min_drop > 0 else 0
 else:
     dtr_val = 15.0
 
 col_p3.metric("DTR (Tiempo Desarrollo)", f"{dtr_val} %")
-col_p4.metric("RoR Final", f"{df_procesado['RoR (°C/min)'].iloc[-1]} °C/min")
+ror_final = df_procesado["RoR (°C/min)"].iloc[-1] if len(df_procesado) > 0 else 0.0
+col_p4.metric("RoR Final", f"{ror_final} °C/min")
 
 # ---------------------------------------------------------
-# GRÁFICA PLOTLY OPTIMIZADA CON ALTA ESCALA Y HITOS SCA
+# GRÁFICA PLOTLY OPTIMIZADA
 # ---------------------------------------------------------
 fig = make_subplots(specs=[[{"secondary_y": True}]])
 
@@ -238,7 +249,7 @@ fig.add_trace(
     secondary_y=False
 )
 
-ror_numeric = [0.0 if r in ["-", "TP"] else float(r) for r in df_procesado["RoR (°C/min)"]]
+ror_numeric = [0.0 if str(r) in ["-", "TP", "nan"] else float(r) for r in df_procesado["RoR (°C/min)"]]
 fig.add_trace(
     go.Scatter(
         x=df_procesado["Minuto"],
@@ -341,7 +352,7 @@ def generar_pdf_reporte(nombre, var, proc, dens, hum, p_obj, sab_obj, peso_c, pe
     ax1.grid(True, linestyle='--', alpha=0.5)
     
     ax2 = ax1.twinx()
-    r_vals = [0.0 if r in ["-", "TP"] else float(r) for r in df["RoR (°C/min)"]]
+    r_vals = [0.0 if str(r) in ["-", "TP", "nan"] else float(r) for r in df["RoR (°C/min)"]]
     ax2.plot(df["Minuto"], r_vals, color='royalblue', linestyle='--', marker='s', label='RoR (°C/min)')
     ax2.plot(df["Minuto"], df["RPM Tambor"], color='forestgreen', linestyle=':', marker='^', label='RPM')
     ax2.set_ylabel('RoR / RPM', color='black', fontsize=8)
