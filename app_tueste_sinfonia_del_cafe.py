@@ -21,6 +21,166 @@ st.title("☕ App Tueste - Sinfonía del Café")
 st.subheader("Simulador Térmico Dinámico y Control de Tostión de Especialidad SCA")
 
 # ---------------------------------------------------------
+# BASE DE CONOCIMIENTO: MATRIZ DE COMBINACIÓN SCA
+# (Variedad x Proceso de Beneficio)
+# ---------------------------------------------------------
+MATRIZ_SCA = {
+    # GEISHA
+    ("Geisha / Gesha", "Lavado (Washed)"): {
+        "perfil": "Acidez Brillante y Complejidad Floral (Tueste Claro)",
+        "sabores": "Jazmín, Flor de azahar, Bergamota, Lemongrass, Durazno blanco, Té verde",
+        "estrategia": "Cuerpo sedoso y alta claridad (Clean cup). Tueste claro y ágil con DTR bajo (~12-14%) para preservar aromáticos volátiles."
+    },
+    ("Geisha / Gesha", "Honey (Amarillo / Rojo / Negro)"): {
+        "perfil": "Acidez Brillante y Complejidad Floral (Tueste Claro)",
+        "sabores": "Flor de limonero, Miel de azahar, Durazno en almíbar, Mandarina, Té blanco",
+        "estrategia": "Dulcera acentuada y cuerpo cremoso. Transferencia de calor progresiva en Maillard para no caramelizar en exceso."
+    },
+    ("Geisha / Gesha", "Natural (Dry Process)"): {
+        "perfil": "Balance Medio / Dulzor y Frutas Redondas (Tueste Medio)",
+        "sabores": "Mango, Maracuyá, Mermelada de albaricoque, Fresa, Miel, Chicle",
+        "estrategia": "Cuerpo jugoso y dulzura muy alta. Control estricto de gas inicial por alta reactividad de azúcares superficiales."
+    },
+    ("Geisha / Gesha", "Anaeróbico / Maceración Carbónica"): {
+        "perfil": "Acidez Brillante y Complejidad Floral (Tueste Claro)",
+        "sabores": "Papaya, Lichi, Flor de hibisco, Yogurt de durazno, Especias dulzonas",
+        "estrategia": "Perfil exótico e intenso. Desarrollo moderado con aire alto en fase final para limpiar notas de fermentación."
+    },
+
+    # BOURBON / TYPICA
+    ("Bourbon / Typica", "Lavado (Washed)"): {
+        "perfil": "Balance Medio / Dulzor y Frutas Redondas (Tueste Medio)",
+        "sabores": "Caramelo, Chocolate con leche, Manzana roja, Avellana, Caña de azúcar",
+        "estrategia": "Taza clásica equilibrada y limpia. Tueste medio con Maillard moderado para resaltar la dulzura de la sacarosa."
+    },
+    ("Bourbon / Typica", "Honey (Amarillo / Rojo / Negro)"): {
+        "perfil": "Balance Medio / Dulzor y Frutas Redondas (Tueste Medio)",
+        "sabores": "Panela, Miel de maple, Ciruela amarilla, Almendra tostada, Higo",
+        "estrategia": "Cuerpo denso y meloso. Cuidado en la fase de secado para garantizar homogeneidad térmica."
+    },
+    ("Bourbon / Typica", "Natural (Dry Process)"): {
+        "perfil": "Cuerpo Denso / Chocolate y Caramelo (Tueste Medio-Oscuro)",
+        "sabores": "Frutos del bosque, Arándano, Cacao amargo, Pasas, Vino tinto",
+        "estrategia": "Cuerpo muy estructurado. RoR descendente constante para balancear la acidez vinosa."
+    },
+    ("Bourbon / Typica", "Anaeróbico / Maceración Carbónica"): {
+        "perfil": "Balance Medio / Dulzor y Frutas Redondas (Tueste Medio)",
+        "sabores": "Cereza al marasquino, Licor de cacao, Canela, Nuez moscada, Mermelada de mora",
+        "estrategia": "Complejidad especiada. Tueste medio controlado para integrar armoniosamente las notas de fermentación."
+    },
+
+    # CATURRA / CASTILLO / COLOMBIA
+    ("Caturra / Castillo / Colombia", "Lavado (Washed)"): {
+        "perfil": "Balance Medio / Dulzor y Frutas Redondas (Tueste Medio)",
+        "sabores": "Lima-limón, Caña de azúcar, Chocolate, Nuez, Naranja dulce",
+        "estrategia": "Acidez cítrica brillante y excelente consistencia. Curva versátil estándar SCA."
+    },
+    ("Caturra / Castillo / Colombia", "Honey (Amarillo / Rojo / Negro)"): {
+        "perfil": "Balance Medio / Dulzor y Frutas Redondas (Tueste Medio)",
+        "sabores": "Durazno, Miel, Azúcar morena, Manzana roja, Chocolate dulce",
+        "estrategia": "Dulzura acentuada. Buena conducción inicial aprovechando la alta densidad del grano."
+    },
+    ("Caturra / Castillo / Colombia", "Natural (Dry Process)"): {
+        "perfil": "Cuerpo Denso / Chocolate y Caramelo (Tueste Medio-Oscuro)",
+        "sabores": "Mora, Cereza, Chocolate negro, Vino tinto, Pasas",
+        "estrategia": "Gran cuerpo y dulzor frutal. Reducción de gas antes del 1st crack para evitar tueste arrebatado."
+    },
+    ("Caturra / Castillo / Colombia", "Anaeróbico / Maceración Carbónica"): {
+        "perfil": "Perfil Expresso / Dulce y Resaltado de Cuerpo",
+        "sabores": "Yogurt de fresa, Maracuyá, Panela, Chocolate amargo, Clavo de olor",
+        "estrategia": "Perfil exótico e intenso. Fase de caramelización ajustada para maximizar dulzor."
+    },
+
+    # BOURBON ROSADO / SIDRA
+    ("Bourbon Rosado / Sidra", "Lavado (Washed)"): {
+        "perfil": "Acidez Brillante y Complejidad Floral (Tueste Claro)",
+        "sabores": "Rosa, Flor de cerezo, Toronja rosada, Melocotón, Té de jazmín",
+        "estrategia": "Acidez tartárica muy elegante. Requiere tueste claro de alta convección para preservar aceites aromáticos."
+    },
+    ("Bourbon Rosado / Sidra", "Honey (Amarillo / Rojo / Negro)"): {
+        "perfil": "Acidez Brillante y Complejidad Floral (Tueste Claro)",
+        "sabores": "Cereza rosada, Miel de flores, Papaya, Naranja sangría, Caramelo suave",
+        "estrategia": "Dulzura floral alta. Transferencia convectiva óptima."
+    },
+    ("Bourbon Rosado / Sidra", "Natural (Dry Process)"): {
+        "perfil": "Balance Medio / Dulzor y Frutas Redondas (Tueste Medio)",
+        "sabores": "Frambuesa, Granadilla, Maracuyá, Chocolate blanco, Vinoso elegante",
+        "estrategia": "Cuerpo sedoso y perfil tropical. RoR suave y sostenido al final."
+    },
+    ("Bourbon Rosado / Sidra", "Anaeróbico / Maceración Carbónica"): {
+        "perfil": "Acidez Brillante y Complejidad Floral (Tueste Claro)",
+        "sabores": "Lichi, Chicle de fresa, Mantequilla dulce, Rosa, Maracuyá",
+        "estrategia": "Aromas extremadamente volátiles. Incrementar aireación en DTR."
+    },
+
+    # PACAMARA / MARAGOGIPE
+    ("Pacamara / Maragogipe", "Lavado (Washed)"): {
+        "perfil": "Balance Medio / Dulzor y Frutas Redondas (Tueste Medio)",
+        "sabores": "Chocolate oscuro, Nuez moscada, Toronja, Frutas tropicales, Cedro noble",
+        "estrategia": "Grano de gran tamaño (elefante). Requiere aplicación de calor homogénea y secado ligeramente más largo."
+    },
+    ("Pacamara / Maragogipe", "Honey (Amarillo / Rojo / Negro)"): {
+        "perfil": "Cuerpo Denso / Chocolate y Caramelo (Tueste Medio-Oscuro)",
+        "sabores": "Miel oscura, Albaricoque seco, Cacao 70%, Caña, Avellana tostada",
+        "estrategia": "Cuerpo muy estructurado. Monitorear penetración de calor en el centro del grano."
+    },
+    ("Pacamara / Maragogipe", "Natural (Dry Process)"): {
+        "perfil": "Cuerpo Denso / Chocolate y Caramelo (Tueste Medio-Oscuro)",
+        "sabores": "Ciruela pasa, Mango maduro, Licor de cacao, Tabaco dulce, Especias",
+        "estrategia": "Rico en azúcares complejos. Cargar con temperatura moderada para evitar carao externo."
+    },
+    ("Pacamara / Maragogipe", "Anaeróbico / Maceración Carbónica"): {
+        "perfil": "Perfil Expresso / Dulce y Resaltado de Cuerpo",
+        "sabores": "Higo maduro, Ron, Chocolate especiado, Cereza, Pimienta dulce",
+        "estrategia": "Intensidad sensorial alta. Extensión moderada de DTR."
+    },
+
+    # SL28 / SL38
+    ("SL28 / SL38", "Lavado (Washed)"): {
+        "perfil": "Acidez Brillante y Complejidad Floral (Tueste Claro)",
+        "sabores": "Grosella negra (Blackcurrant), Toronja, Tomate dulce, Vino tinto joven, Caña",
+        "estrategia": "Acidez fosfórica brillante icónica de Kenia. Tueste claro de alta energía convectiva."
+    },
+    ("SL28 / SL38", "Honey (Amarillo / Rojo / Negro)"): {
+        "perfil": "Balance Medio / Dulzor y Frutas Redondas (Tueste Medio)",
+        "sabores": "Mora azul, Ciruela, Miel de caña, Toronja dulce, Chocolate al 60%",
+        "estrategia": "Equilibrio entre acidez fosfórica y dulzor de miel."
+    },
+    ("SL28 / SL38", "Natural (Dry Process)"): {
+        "perfil": "Balance Medio / Dulzor y Frutas Redondas (Tueste Medio)",
+        "sabores": "Casis, Cereza negra, Mermelada de mora, Cacao, Vinoso frutal",
+        "estrategia": "Frutos oscuros jugosos. Controlar RoR para mantener la brillantez de la acidez."
+    },
+    ("SL28 / SL38", "Anaeróbico / Maceración Carbónica"): {
+        "perfil": "Acidez Brillante y Complejidad Floral (Tueste Claro)",
+        "sabores": "Arándano azul, Maracuyá, Vino Oporto, Tamarindo, Hibisco",
+        "estrategia": "Sabor explosivo. Tueste rápido con alta conducción/convección inicial."
+    },
+
+    # OTRO / MEZCLA
+    ("Otro / Mezcla", "Lavado (Washed)"): {
+        "perfil": "Balance Medio / Dulzor y Frutas Redondas (Tueste Medio)",
+        "sabores": "Caramelo, Cítricos dulces, Frutos secos, Chocolate",
+        "estrategia": "Curva estándar balanceada."
+    },
+    ("Otro / Mezcla", "Honey (Amarillo / Rojo / Negro)"): {
+        "perfil": "Balance Medio / Dulzor y Frutas Redondas (Tueste Medio)",
+        "sabores": "Miel, Panela, Frutas amarillas, Almendras",
+        "estrategia": "Desarrollo medio equilibrado."
+    },
+    ("Otro / Mezcla", "Natural (Dry Process)"): {
+        "perfil": "Cuerpo Denso / Chocolate y Caramelo (Tueste Medio-Oscuro)",
+        "sabores": "Frutos rojos, Chocolate maduro, Vino, Pasas",
+        "estrategia": "Tueste con mayor desarrollo de Maillard y cuerpo."
+    },
+    ("Otro / Mezcla", "Anaeróbico / Maceración Carbónica"): {
+        "perfil": "Perfil Expresso / Dulce y Resaltado de Cuerpo",
+        "sabores": "Frutas exóticas, Especias, Licor, Yogurt",
+        "estrategia": "Cuidadoso control térmico para moderar acidez fermentada."
+    }
+}
+
+# ---------------------------------------------------------
 # MOTOR DE SIMULACIÓN TERMODINÁMICA
 # ---------------------------------------------------------
 def simular_curva_termodinamica(df_input, temp_carga, rpm_optima):
@@ -71,32 +231,62 @@ def simular_curva_termodinamica(df_input, temp_carga, rpm_optima):
 # ---------------------------------------------------------
 st.sidebar.header("📋 Ficha del Café Verde")
 nombre_lote = st.sidebar.text_input("Nombre del Lote / Finca", "Finca La Esperanza")
-variedad = st.sidebar.text_input("Variedad", "Castillo / Geisha")
-proceso = st.sidebar.selectbox("Proceso de Beneficio", ["Lavado", "Natural", "Honey", "Anaeróbico"])
+
+# Menú desplegable de Variedades
+opciones_variedad = [
+    "Geisha / Gesha",
+    "Bourbon / Typica",
+    "Caturra / Castillo / Colombia",
+    "Bourbon Rosado / Sidra",
+    "Pacamara / Maragogipe",
+    "SL28 / SL38",
+    "Otro / Mezcla"
+]
+variedad = st.sidebar.selectbox("Variedad (Genotipo)", opciones_variedad, index=0)
+
+# Menú desplegable de Procesos de Beneficio
+opciones_proceso = [
+    "Lavado (Washed)",
+    "Honey (Amarillo / Rojo / Negro)",
+    "Natural (Dry Process)",
+    "Anaeróbico / Maceración Carbónica"
+]
+proceso = st.sidebar.selectbox("Proceso de Beneficio", opciones_proceso, index=0)
+
 densidad = st.sidebar.number_input("Densidad (g/L)", value=680, step=5)
 humedad = st.sidebar.number_input("Humedad (%)", value=11.5, step=0.1)
 
-st.sidebar.header("🎯 Perfil Objetivo y Sabores Deseados")
-perfil_objetivo = st.sidebar.selectbox(
-    "Tipo de Perfil de Tostión (Carga Preset de Receta)",
-    [
-        "Acidez Brillante y Complejidad Floral (Tueste Claro)",
-        "Balance Medio / Dulzor y Frutas Redondas (Tueste Medio)",
-        "Cuerpo Denso / Chocolate y Caramelo (Tueste Medio-Oscuro)",
-        "Perfil Expresso / Dulce y Resaltado de Cuerpo"
-    ]
+# Obtener recomendación automática desde la Matriz SCA
+info_sca = MATRIZ_SCA.get(
+    (variedad, proceso),
+    {
+        "perfil": "Balance Medio / Dulzor y Frutas Redondas (Tueste Medio)",
+        "sabores": "Caramelo, Cítricos dulces, Frutos secos, Chocolate",
+        "estrategia": "Ajustar curva según densidad y humedad."
+    }
 )
 
-sabores_sugeridos = {
-    "Acidez Brillante y Complejidad Floral (Tueste Claro)": "Jazmín, Bergamota, Limón, Durazno blanco",
-    "Balance Medio / Dulzor y Frutas Redondas (Tueste Medio)": "Panela, Manzana roja, Avellana, Caramelo",
-    "Cuerpo Denso / Chocolate y Caramelo (Tueste Medio-Oscuro)": "Cacao amargo, Nuez moscada, Chocolate negro, Miel oscura",
-    "Perfil Expresso / Dulce y Resaltado de Cuerpo": "Chocolate con leche, Almendras tostadas, Panela, Crema"
-}
+st.sidebar.header("🎯 Perfil Objetivo y Sabores Deseados")
+
+opciones_perfil = [
+    "Acidez Brillante y Complejidad Floral (Tueste Claro)",
+    "Balance Medio / Dulzor y Frutas Redondas (Tueste Medio)",
+    "Cuerpo Denso / Chocolate y Caramelo (Tueste Medio-Oscuro)",
+    "Perfil Expresso / Dulce y Resaltado de Cuerpo"
+]
+
+# Seleccionar el índice predeterminado según la sugerencia de la matriz
+idx_sugerido = opciones_perfil.index(info_sca["perfil"]) if info_sca["perfil"] in opciones_perfil else 1
+
+perfil_objetivo = st.sidebar.selectbox(
+    "Tipo de Perfil de Tostión",
+    opciones_perfil,
+    index=idx_sugerido
+)
 
 sabores_deseados = st.sidebar.text_input(
     "Sabores / Descriptores a Percibir",
-    sabores_sugeridos[perfil_objetivo]
+    value=info_sca["sabores"]
 )
 
 st.sidebar.header("⚙️ Configuración del Batch")
@@ -110,7 +300,7 @@ modo_calculo = st.sidebar.radio(
 )
 
 # ---------------------------------------------------------
-# GENERADOR DE PRESETS CON COLUMNA DE TEMPERATURA INCLUIDA
+# GENERADOR DE PRESETS SEGÚN EL PERFIL ELEGIDO
 # ---------------------------------------------------------
 def obtener_preset_perfil(perfil):
     if "Acidez Brillante" in perfil:
@@ -160,16 +350,51 @@ datos_preset = obtener_preset_perfil(perfil_objetivo)
 df_base = pd.DataFrame(datos_preset)
 
 # ---------------------------------------------------------
+# PANEL PRINCIPAL: TARJETA EXPLICATIVA Y MATRIZ SCA
+# ---------------------------------------------------------
+st.markdown("### 🧪 Diagnóstico de Selección: Variedad x Proceso de Beneficio")
+
+col_info1, col_info2 = st.columns([2, 1])
+
+with col_info1:
+    st.success(
+        f"**Selección Actual:** `{variedad}` | Proceso: `{proceso}`\n\n"
+        f"🎯 **Perfil Recomendado SCA:** {info_sca['perfil']}\n\n"
+        f"☕ **Notas Sensoriales Esperadas:** {info_sca['sabores']}\n\n"
+        f"🔥 **Estrategia Térmica:** {info_sca['estrategia']}"
+    )
+
+with col_info2:
+    st.info(
+        "💡 **Estándar SCA:**\n\n"
+        "La **Variedad** define los precursores genéticos (azúcares/ácidos) y la **Beneficiación** altera la conductividad y solubilidad del grano. ¡Ajusta tu receta acorde!"
+    )
+
+# EXPANDER DE LA MATRIZ DE COMBINACIÓN COMPLETA
+with st.expander("📚 Ver Matriz de Combinación SCA Completa (Todas las Variedades y Beneficios)"):
+    filas_matriz = []
+    for (var_k, proc_k), v_data in MATRIZ_SCA.items():
+        filas_matriz.append({
+            "Variedad": var_k,
+            "Proceso": proc_k,
+            "Perfil Recomendado": v_data["perfil"],
+            "Sabores Esperados": v_data["sabores"],
+            "Estrategia de Tueste": v_data["estrategia"]
+        })
+    df_matriz_full = pd.DataFrame(filas_matriz)
+    st.dataframe(df_matriz_full, use_container_width=True)
+
+# ---------------------------------------------------------
 # INTERFAZ Y TABLA INTERACTIVA
 # ---------------------------------------------------------
+st.markdown("---")
 st.markdown("### 📊 Control y Bitácora Interactiva")
-st.info(f"🎯 **Perfil Seleccionado:** {perfil_objetivo} | **Sabores Objetivo:** {sabores_deseados}")
 
 df_editado = st.data_editor(
     df_base,
     num_rows="dynamic",
     use_container_width=True,
-    key=f"editor_{perfil_objetivo}",
+    key=f"editor_{variedad}_{proceso}_{perfil_objetivo}",
     column_config={
         "Minuto": st.column_config.NumberColumn("Minuto", format="%.2f"),
         "Temp Grano (°C)": st.column_config.NumberColumn("BT (°C)", format="%.1f"),
@@ -187,7 +412,6 @@ if "Simulador" in modo_calculo:
 else:
     df_procesado = df_editado.copy()
     
-    # Garantizar que la columna exista para evitar KeyError
     if "Temp Grano (°C)" not in df_procesado.columns:
         df_procesado["Temp Grano (°C)"] = 100.0
         
@@ -302,7 +526,7 @@ fig.update_yaxes(
 )
 
 fig.update_layout(
-    title="Curva Termodinámica de Tueste: BT, RoR, RPM y Hitos SCA",
+    title=f"Curva Termodinámica de Tueste: {variedad} ({proceso})",
     hovermode="x unified",
     height=620,
     margin=dict(l=40, r=40, t=60, b=80),
