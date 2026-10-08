@@ -21,15 +21,9 @@ st.title("☕ App Tueste - Sinfonía del Café")
 st.subheader("Simulador Térmico Dinámico y Control de Tostión de Especialidad SCA")
 
 # ---------------------------------------------------------
-# MOTOR DE SIMULACIÓN TERMODINÁMICA (FÍSICA DE TOSTIÓN)
+# MOTOR DE SIMULACIÓN TERMODINÁMICA
 # ---------------------------------------------------------
 def simular_curva_termodinamica(df_input, temp_carga, rpm_optima):
-    """
-    Recalcula la curva de Temperatura BT (°C) y RoR (°C/min) en función de:
-    - Potencia de Gas (%)
-    - Flujo de Aire (%)
-    - RPM del Tambor
-    """
     df = df_input.copy()
     temps = [float(temp_carga)]
     rors = ["-", "TP"]
@@ -45,21 +39,14 @@ def simular_curva_termodinamica(df_input, temp_carga, rpm_optima):
         curr_temp = temps[-1]
         
         if i == 1:
-            # Turning Point (Punto de Viraje)
             tp_temp = 92.0 + (gas - 80.0) * 0.12 + (rpm - rpm_optima) * 0.08
             temps.append(round(tp_temp, 1))
         else:
-            # 1. Impulso de calor por Potencia de Gas (0-100% -> RoR base)
             base_ror = 3.0 + (gas / 100.0) * 20.0
             
-            # 2. Eficiencia por RPM del Tambor
             rpm_diff = abs(rpm - rpm_optima)
-            if rpm_diff <= 4:
-                rpm_eff = 1.0
-            else:
-                rpm_eff = max(0.60, 1.0 - (rpm_diff - 4) * 0.02)
+            rpm_eff = 1.0 if rpm_diff <= 4 else max(0.60, 1.0 - (rpm_diff - 4) * 0.02)
                 
-            # 3. Eficiencia por Flujo de Aire (Convección vs Pérdida por Extracción)
             if air <= 30:
                 air_eff = 0.85 + (air / 30.0) * 0.10
             elif air <= 65:
@@ -67,10 +54,8 @@ def simular_curva_termodinamica(df_input, temp_carga, rpm_optima):
             else:
                 air_eff = 1.05 - ((air - 65) / 35.0) * 0.28
                 
-            # 4. Gradiente Térmico del Grano
             temp_gradient = max(0.35, 1.0 - (curr_temp - 90.0) / 215.0)
             
-            # RoR Resultante
             calc_ror = round(base_ror * rpm_eff * air_eff * temp_gradient, 1)
             next_temp = round(curr_temp + calc_ror * dt, 1)
             
@@ -82,7 +67,7 @@ def simular_curva_termodinamica(df_input, temp_carga, rpm_optima):
     return df
 
 # ---------------------------------------------------------
-# BARRA LATERAL: PARAMETROS Y PERFIL DESEADO
+# BARRA LATERAL: FICHA Y PERFIL OBJETIVO DINÁMICO
 # ---------------------------------------------------------
 st.sidebar.header("📋 Ficha del Café Verde")
 nombre_lote = st.sidebar.text_input("Nombre del Lote / Finca", "Finca La Esperanza")
@@ -93,7 +78,7 @@ humedad = st.sidebar.number_input("Humedad (%)", value=11.5, step=0.1)
 
 st.sidebar.header("🎯 Perfil Objetivo y Sabores Deseados")
 perfil_objetivo = st.sidebar.selectbox(
-    "Tipo de Perfil de Tostión",
+    "Tipo de Perfil de Tostión (Carga Preset de Receta)",
     [
         "Acidez Brillante y Complejidad Floral (Tueste Claro)",
         "Balance Medio / Dulzor y Frutas Redondas (Tueste Medio)",
@@ -101,9 +86,18 @@ perfil_objetivo = st.sidebar.selectbox(
         "Perfil Expresso / Dulce y Resaltado de Cuerpo"
     ]
 )
+
+# Sugerir notas según el perfil seleccionado
+sabores_sugeridos = {
+    "Acidez Brillante y Complejidad Floral (Tueste Claro)": "Jazmín, Bergamota, Limón, Durazno blanco",
+    "Balance Medio / Dulzor y Frutas Redondas (Tueste Medio)": "Panela, Manzana roja, Avellana, Caramelo",
+    "Cuerpo Denso / Chocolate y Caramelo (Tueste Medio-Oscuro)": "Cacao amargo, Nuez moscada, Chocolate negro, Miel oscura",
+    "Perfil Expresso / Dulce y Resaltado de Cuerpo": "Chocolate con leche, Almendras tostadas, Panela, Crema"
+}
+
 sabores_deseados = st.sidebar.text_input(
     "Sabores / Descriptores a Percibir",
-    "Jasmin, Durazno, Panela, Cacao fino"
+    sabores_sugeridos[perfil_objetivo]
 )
 
 st.sidebar.header("⚙️ Configuración del Batch")
@@ -116,41 +110,67 @@ modo_calculo = st.sidebar.radio(
     ["🔥 Simulador Térmico Dinámico (Física de Tostión)", "📝 Bitácora de Campo (Ingreso Manual Libre)"]
 )
 
-# Datos base iniciales
-datos_iniciales = {
-    "Minuto": [0.0, 1.0, 2.0, 3.0, 4.0, 4.5, 5.0, 6.0, 7.0, 8.0, 9.0, 9.75, 10.5, 11.5],
-    "Fase / Hito SCA": [
-        "01. Carga", "02. TP", "03. Secado",
-        "04. Pico RoR", "05. Vaporización", "06. Amarillo",
-        "07. In. Maillard", "08. Aromas", "09. Carameliz.",
-        "10. Pre-Crack", "11. Presión Alta", "12. 1st Crack",
-        "13. DTR", "14. Drop"
-    ],
-    "Color del Grano": [
-        "Verde Aceituna", "Verde Claro", "Verde Menta", "Amarillo Verdoso",
-        "Amarillo Pálido", "Amarillo Dorado", "Canela Claro", "Marrón Avellana",
-        "Marrón Pardo", "Marrón Medio", "Marrón Intenso", "Marrón City",
-        "Marrón City+", "Marrón Chocolate Claro"
-    ],
-    "RPM Tambor": [61, 61, 61, 61, 61, 61, 63, 63, 65, 65, 66, 66, 66, 66],
-    "Flujo Aire (%)": [30, 30, 30, 30, 40, 40, 50, 50, 60, 60, 70, 80, 85, 90],
-    "Potencia Gas (%)": [80, 80, 80, 80, 75, 75, 70, 65, 60, 55, 45, 35, 25, 20],
-    "Temp Grano (°C)": [188.1, 92.0, 109.9, 126.2, 140.8, 147.5, 153.7, 164.9, 174.9, 183.5, 190.1, 193.7, 196.3, 199.2],
-    "RoR (°C/min)": ["-", "TP", "17.9", "16.3", "14.6", "13.4", "12.4", "11.2", "10.0", "8.6", "6.6", "4.8", "3.5", "2.9"]
-}
+# ---------------------------------------------------------
+# GENERADOR DE PRESETS DE RECETAS SEGÚN EL PERFIL ELEGIDO
+# ---------------------------------------------------------
+def obtener_preset_perfil(perfil):
+    if "Acidez Brillante" in perfil:
+        # Tueste más rápido, gas alto inicial, corte rápido tras 1st Crack
+        return {
+            "Minuto": [0.0, 1.0, 2.0, 3.0, 4.0, 4.5, 5.0, 5.8, 6.5, 7.2, 8.0, 8.6, 9.2, 9.8],
+            "Fase / Hito SCA": [
+                "01. Carga", "02. TP", "03. Secado", "04. Pico RoR", "05. Vaporización",
+                "06. Amarillo", "07. In. Maillard", "08. Aromas", "09. Carameliz.",
+                "10. Pre-Crack", "11. Presión Alta", "12. 1st Crack", "13. DTR", "14. Drop"
+            ],
+            "Color del Grano": ["Verde", "Verde C.", "Verde M.", "Amarillo V.", "Amarillo P.", "Amarillo D.", "Canela C.", "Marrón A.", "Marrón P.", "Marrón M.", "Marrón I.", "Marrón City", "Marrón City", "Marrón Claro"],
+            "RPM Tambor": [63]*14,
+            "Flujo Aire (%)": [35, 35, 35, 40, 45, 50, 55, 60, 65, 70, 75, 80, 85, 90],
+            "Potencia Gas (%)": [85, 85, 85, 80, 75, 70, 65, 55, 45, 35, 25, 20, 15, 10]
+        }
+    elif "Cuerpo Denso" in perfil:
+        # Tueste más largo, desarrollo de Maillard prolongado
+        return {
+            "Minuto": [0.0, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0, 10.8, 11.8, 12.8],
+            "Fase / Hito SCA": [
+                "01. Carga", "02. TP", "03. Secado", "04. Pico RoR", "05. Vaporización",
+                "06. Amarillo", "07. In. Maillard", "08. Aromas", "09. Carameliz.",
+                "10. Pre-Crack", "11. Presión Alta", "12. 1st Crack", "13. DTR", "14. Drop"
+            ],
+            "Color del Grano": ["Verde", "Verde C.", "Verde M.", "Amarillo V.", "Amarillo P.", "Amarillo D.", "Canela C.", "Marrón A.", "Marrón P.", "Marrón M.", "Marrón I.", "Marrón City", "Marrón Full City", "Marrón Oscuro"],
+            "RPM Tambor": [60]*14,
+            "Flujo Aire (%)": [25, 25, 30, 30, 35, 40, 45, 50, 55, 60, 65, 70, 75, 80],
+            "Potencia Gas (%)": [75, 75, 75, 70, 70, 65, 60, 55, 50, 45, 35, 30, 25, 15]
+        }
+    else:
+        # Perfil Estándar / Balanceado / Expresso
+        return {
+            "Minuto": [0.0, 1.0, 2.0, 3.0, 4.0, 4.5, 5.0, 6.0, 7.0, 8.0, 9.0, 9.75, 10.5, 11.5],
+            "Fase / Hito SCA": [
+                "01. Carga", "02. TP", "03. Secado", "04. Pico RoR", "05. Vaporización",
+                "06. Amarillo", "07. In. Maillard", "08. Aromas", "09. Carameliz.",
+                "10. Pre-Crack", "11. Presión Alta", "12. 1st Crack", "13. DTR", "14. Drop"
+            ],
+            "Color del Grano": ["Verde", "Verde C.", "Verde M.", "Amarillo V.", "Amarillo P.", "Amarillo D.", "Canela C.", "Marrón A.", "Marrón P.", "Marrón M.", "Marrón I.", "Marrón City", "Marrón City+", "Marrón Choc."],
+            "RPM Tambor": [61, 61, 61, 61, 61, 61, 63, 63, 65, 65, 66, 66, 66, 66],
+            "Flujo Aire (%)": [30, 30, 30, 30, 40, 40, 50, 50, 60, 60, 70, 80, 85, 90],
+            "Potencia Gas (%)": [80, 80, 80, 80, 75, 75, 70, 65, 60, 55, 45, 35, 25, 20]
+        }
 
-df_base = pd.DataFrame(datos_iniciales)
+datos_preset = obtener_preset_perfil(perfil_objetivo)
+df_base = pd.DataFrame(datos_preset)
 
 # ---------------------------------------------------------
 # INTERFAZ Y TABLA INTERACTIVA
 # ---------------------------------------------------------
 st.markdown("### 📊 Control y Bitácora Interactiva")
-st.info(f"🎯 **Perfil Seleccionado:** {perfil_objetivo} | **Sabores:** {sabores_deseados}")
+st.info(f"🎯 **Perfil Seleccionado:** {perfil_objetivo} | **Sabores Objetivo:** {sabores_deseados}")
 
 df_editado = st.data_editor(
     df_base,
     num_rows="dynamic",
     use_container_width=True,
+    key=f"editor_{perfil_objetivo}", # Key para forzar recarga al cambiar selector
     column_config={
         "Minuto": st.column_config.NumberColumn("Minuto", format="%.2f"),
         "Temp Grano (°C)": st.column_config.NumberColumn("BT (°C)", format="%.1f"),
@@ -202,7 +222,6 @@ col_p4.metric("RoR Final", f"{df_procesado['RoR (°C/min)'].iloc[-1]} °C/min")
 # ---------------------------------------------------------
 fig = make_subplots(specs=[[{"secondary_y": True}]])
 
-# 1. Curva BT con Marcadores y Texto de Hitos SCA
 fig.add_trace(
     go.Scatter(
         x=df_procesado["Minuto"],
@@ -219,7 +238,6 @@ fig.add_trace(
     secondary_y=False
 )
 
-# 2. Curva RoR
 ror_numeric = [0.0 if r in ["-", "TP"] else float(r) for r in df_procesado["RoR (°C/min)"]]
 fig.add_trace(
     go.Scatter(
@@ -234,7 +252,6 @@ fig.add_trace(
     secondary_y=True
 )
 
-# 3. Curva RPM Tambor
 fig.add_trace(
     go.Scatter(
         x=df_procesado["Minuto"],
@@ -248,10 +265,9 @@ fig.add_trace(
     secondary_y=True
 )
 
-# Configuración detallada de escalas y ejes
 fig.update_xaxes(
     title_text="Tiempo (Minutos)",
-    dtick=0.5,             # Escala en X cada 0.5 minutos
+    dtick=0.5,
     tickangle=-45,
     showgrid=True,
     gridcolor="#EBEBEB"
@@ -261,7 +277,7 @@ fig.update_yaxes(
     title_text="Temperatura BT (°C)",
     secondary_y=False,
     range=[50, 230],
-    dtick=10,              # Escala en Y1 cada 10 °C
+    dtick=10,
     showgrid=True,
     gridcolor="#EBEBEB"
 )
@@ -270,7 +286,7 @@ fig.update_yaxes(
     title_text="RoR (°C/min) / RPM / Aire% / Gas%",
     secondary_y=True,
     range=[0, 110],
-    dtick=10,              # Escala en Y2 cada 10 unidades
+    dtick=10,
     showgrid=False
 )
 
@@ -291,14 +307,12 @@ def generar_pdf_reporte(nombre, var, proc, dens, hum, p_obj, sab_obj, peso_c, pe
     pdf = FPDF()
     pdf.add_page()
     
-    # Encabezado
     pdf.set_font("Arial", "B", 14)
     pdf.cell(0, 8, "App Tueste - Sinfonia del Cafe", ln=True, align="C")
     pdf.set_font("Arial", "I", 9)
     pdf.cell(0, 5, "Reporte Tecnico de Tostion SCA y Simulador Termodinamico", ln=True, align="C")
     pdf.ln(3)
     
-    # 1. Ficha Técnica y Perfil Objetivo
     pdf.set_font("Arial", "B", 10)
     pdf.cell(0, 6, "1. Ficha del Cafe Verde, Perfil Objetivo y Rendimiento", ln=True)
     pdf.set_font("Arial", "", 9)
@@ -309,11 +323,9 @@ def generar_pdf_reporte(nombre, var, proc, dens, hum, p_obj, sab_obj, peso_c, pe
     pdf.cell(0, 5, f"Masa Obtenida: {peso_t}g | Merma: {m_val}% | DTR: {dtr}%", ln=True)
     pdf.ln(3)
     
-    # 2. Gráfica Matplotlib para PDF
     fig_plt, ax1 = plt.subplots(figsize=(8, 4), dpi=150)
     ax1.plot(df["Minuto"], df["Temp Grano (°C)"], color='firebrick', marker='o', linewidth=2, label='BT (°C)')
     
-    # Anotación de Hitos SCA en PDF
     for idx, r in df.iterrows():
         hito_txt = str(r["Fase / Hito SCA"]).split(". ")[-1] if ". " in str(r["Fase / Hito SCA"]) else str(r["Fase / Hito SCA"])
         ax1.annotate(hito_txt[:12], (r["Minuto"], r["Temp Grano (°C)"]),
@@ -356,7 +368,6 @@ def generar_pdf_reporte(nombre, var, proc, dens, hum, p_obj, sab_obj, peso_c, pe
     pdf.image(tmp_path, x=10, y=pdf.get_y(), w=190)
     pdf.set_y(pdf.get_y() + 95)
     
-    # 3. Bitácora
     pdf.set_font("Arial", "B", 10)
     pdf.cell(0, 6, "3. Bitacora Tabulada", ln=True)
     pdf.set_font("Arial", "B", 7)
