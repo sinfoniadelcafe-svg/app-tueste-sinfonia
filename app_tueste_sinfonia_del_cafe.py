@@ -122,7 +122,7 @@ for i in range(2, len(df_editado)):
 
 df_editado["RoR (°C/min)"] = rors
 
-# DIAGNÓSTICO EN VIVO
+# DIAGNÓSTICO EN VIVO (ESTRUCTURA CORREGIDA)
 st.subheader("🔍 Diagnóstico Térmico del RoR en Vivo")
 ror_num = [0.0 if r in ["-", "TP"] else float(r) for r in rors]
 
@@ -131,9 +131,16 @@ has_crash = any(ror_num[idx] <= 0.5 for idx in range(3, len(ror_num)) if df_edit
 
 col_d1, col_d2 = st.columns(2)
 with col_d1:
-    st.error("⚠️ **Alerta de Flick:** RoR subió tras el 1st Crack.") if has_flick else st.success("✅ **Sin Flick:** RoR controlado.")
+    if has_flick:
+        st.error("⚠️ **Alerta de Flick:** RoR subió tras el 1st Crack.")
+    else:
+        st.success("✅ **Sin Flick:** RoR controlado.")
+
 with col_d2:
-    st.warning("⚠️ **Alerta de Crash:** RoR muy bajo antes del descarte.") if has_crash else st.success("✅ **Curva Fluida:** Impulso constante.")
+    if has_crash:
+        st.warning("⚠️ **Alerta de Crash:** RoR muy bajo antes del descarte.")
+    else:
+        st.success("✅ **Curva Fluida:** Impulso constante.")
 
 st.markdown("---")
 
@@ -154,7 +161,7 @@ st.plotly_chart(fig, use_container_width=True)
 
 st.markdown("---")
 
-# CONTROL DE MASAS Y PDF
+# CONTROL DE MASAS Y GENERACIÓN DE PDF
 st.subheader("⚖️ Rendimiento Final y Generación de Reporte PDF")
 col_m1, col_m2 = st.columns(2)
 
@@ -163,19 +170,16 @@ with col_m1:
     merma_pct = round(((peso_carga - peso_tostado) / peso_carga) * 100, 2) if peso_carga > 0 else 0.0
     st.metric("Merma Resultante (%)", f"{merma_pct} %")
 
-# FUNCIÓN PARA GENERAR EL ARCHIVO PDF
 def generar_pdf(nombre, variedad, proceso, densidad, humedad, peso_c, peso_t, merma, dtr, df_data):
     pdf = FPDF()
     pdf.add_page()
     
-    # Encabezado
     pdf.set_font("Arial", "B", 14)
     pdf.cell(0, 10, "App Tueste - Sinfonia del Cafe", ln=True, align="C")
     pdf.set_font("Arial", "I", 10)
     pdf.cell(0, 6, "Reporte Tecnico de Tostion de Especialidad SCA", ln=True, align="C")
     pdf.ln(5)
     
-    # Ficha del Café Verde
     pdf.set_font("Arial", "B", 11)
     pdf.cell(0, 7, "1. Ficha del Cafe Verde y Rendimiento", ln=True)
     pdf.set_font("Arial", "", 10)
@@ -184,9 +188,8 @@ def generar_pdf(nombre, variedad, proceso, densidad, humedad, peso_c, peso_t, me
     pdf.cell(0, 6, f"Masa Obtenida: {peso_t}g | Merma: {merma}% | DTR Objetivo: {dtr}%", ln=True)
     pdf.ln(5)
     
-    # Tabla de Bitácora
     pdf.set_font("Arial", "B", 11)
-    pdf.cell(0, 7, "2. Bitacora y Registro Térmico", ln=True)
+    pdf.cell(0, 7, "2. Bitacora y Registro Termico", ln=True)
     
     pdf.set_font("Arial", "B", 8)
     pdf.cell(15, 6, "Min", border=1)
