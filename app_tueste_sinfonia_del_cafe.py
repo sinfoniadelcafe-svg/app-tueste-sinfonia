@@ -2,6 +2,9 @@ import streamlit as st
 import pandas as pd
 import plotly.graph_objects as go
 from fpdf import FPDF
+import matplotlib.pyplot as plt
+import io
+import tempfile
 
 # Configuración de la página
 st.set_page_config(
@@ -122,7 +125,7 @@ for i in range(2, len(df_editado)):
 
 df_editado["RoR (°C/min)"] = rors
 
-# DIAGNÓSTICO EN VIVO (ESTRUCTURA CORREGIDA)
+# DIAGNÓSTICO EN VIVO
 st.subheader("🔍 Diagnóstico Térmico del RoR en Vivo")
 ror_num = [0.0 if r in ["-", "TP"] else float(r) for r in rors]
 
@@ -144,25 +147,81 @@ with col_d2:
 
 st.markdown("---")
 
-# GRÁFICA INTERACTIVA
+# GRÁFICA INTERACTIVA WEB CON ESCALA NUMÉRICA DETALLADA E HITOS SCA
 fig = go.Figure()
-fig.add_trace(go.Scatter(x=df_editado["Minuto"], y=df_editado["Temp Grano (°C)"], mode='lines+markers', name='BT (°C)', line=dict(color='firebrick', width=3)))
-fig.add_trace(go.Scatter(x=df_editado["Minuto"], y=ror_num, mode='lines+markers', name='RoR (°C/min)', line=dict(color='royalblue', width=2, dash='dash'), yaxis="y2"))
-fig.add_trace(go.Scatter(x=df_editado["Minuto"], y=df_editado["RPM Tambor"], mode='lines+markers', name='RPM', line=dict(color='forestgreen', width=2, dash='dot'), yaxis="y2"))
 
+# 1. Curva BT con Etiquetas de Hitos SCA en cada punto
+fig.add_trace(go.Scatter(
+    x=df_editado["Minuto"], 
+    y=df_editado["Temp Grano (°C)"], 
+    mode='lines+markers+text', 
+    name='BT (°C)', 
+    text=df_editado["Fase / Hito SCA"],
+    textposition="top center",
+    textfont=dict(size=8, color="maroon"),
+    line=dict(color='firebrick', width=3)
+))
+
+# 2. Curva RoR
+fig.add_trace(go.Scatter(
+    x=df_editado["Minuto"], 
+    y=ror_num, 
+    mode='lines+markers', 
+    name='RoR (°C/min)', 
+    line=dict(color='royalblue', width=2, dash='dash'), 
+    yaxis="y2"
+))
+
+# 3. Curva RPM
+fig.add_trace(go.Scatter(
+    x=df_editado["Minuto"], 
+    y=df_editado["RPM Tambor"], 
+    mode='lines+markers', 
+    name='RPM', 
+    line=dict(color='forestgreen', width=2, dash='dot'), 
+    yaxis="y2"
+))
+
+# Configuración de ejes con división numérica fina (cada 0.5 min en X y cada 10 unidades en Y)
 fig.update_layout(
-    title="Curva de Tueste, RoR y RPM",
-    xaxis=dict(title="Tiempo (Min)"),
-    yaxis=dict(title="Temperatura (°C)", range=[50, 240]),
-    yaxis2=dict(title="RoR / RPM", overlaying="y", side="right", range=[0, 100]),
-    height=500
+    title="Curva de Tueste, RoR y RPM con Hitos SCA",
+    xaxis=dict(
+        title="Tiempo (Minutos)",
+        tickmode='linear',
+        tick0=0,
+        dtick=0.5,
+        gridcolor='lightgray',
+        showgrid=True
+    ),
+    yaxis=dict(
+        title="Temperatura BT (°C)", 
+        range=[50, 235],
+        tickmode='linear',
+        tick0=50,
+        dtick=10,
+        gridcolor='lightgray',
+        showgrid=True
+    ),
+    yaxis2=dict(
+        title="RoR (°C/min) / RPM", 
+        overlaying="y", 
+        side="right", 
+        range=[0, 100],
+        tickmode='linear',
+        tick0=0,
+        dtick=10,
+        showgrid=False
+    ),
+    legend=dict(x=0.01, y=0.99),
+    height=600
 )
+
 st.plotly_chart(fig, use_container_width=True)
 
 st.markdown("---")
 
-# CONTROL DE MASAS Y GENERACIÓN DE PDF
-st.subheader("⚖️ Rendimiento Final y Generación de Reporte PDF")
+# CONTROL DE MASAS Y GENERACIÓN DE REPORTES EN PDF
+st.subheader("⚖️ Rendimiento Final y Generación de Reportes")
 col_m1, col_m2 = st.columns(2)
 
 with col_m1:
@@ -170,45 +229,111 @@ with col_m1:
     merma_pct = round(((peso_carga - peso_tostado) / peso_carga) * 100, 2) if peso_carga > 0 else 0.0
     st.metric("Merma Resultante (%)", f"{merma_pct} %")
 
+# FUNCIÓN PARA GENERAR EL PDF CON LA GRÁFICA INCLUIDA
 def generar_pdf(nombre, variedad, proceso, densidad, humedad, peso_c, peso_t, merma, dtr, df_data):
     pdf = FPDF()
     pdf.add_page()
     
+    # Encabezado
     pdf.set_font("Arial", "B", 14)
-    pdf.cell(0, 10, "App Tueste - Sinfonia del Cafe", ln=True, align="C")
-    pdf.set_font("Arial", "I", 10)
-    pdf.cell(0, 6, "Reporte Tecnico de Tostion de Especialidad SCA", ln=True, align="C")
-    pdf.ln(5)
+    pdf.cell(0, 8, "App Tueste - Sinfonia del Cafe", ln=True, align="C")
+    pdf.set_font("Arial", "I", 9)
+    pdf.cell(0, 5, "Reporte Tecnico de Tostion de Especialidad SCA", ln=True, align="C")
+    pdf.ln(3)
     
-    pdf.set_font("Arial", "B", 11)
-    pdf.cell(0, 7, "1. Ficha del Cafe Verde y Rendimiento", ln=True)
-    pdf.set_font("Arial", "", 10)
-    pdf.cell(0, 6, f"Lote / Finca: {nombre} | Variedad: {variedad} | Proceso: {proceso}", ln=True)
-    pdf.cell(0, 6, f"Densidad: {densidad} g/L | Humedad: {humedad}% | Masa Carga: {peso_c}g", ln=True)
-    pdf.cell(0, 6, f"Masa Obtenida: {peso_t}g | Merma: {merma}% | DTR Objetivo: {dtr}%", ln=True)
-    pdf.ln(5)
+    # 1. Ficha del Café Verde
+    pdf.set_font("Arial", "B", 10)
+    pdf.cell(0, 6, "1. Ficha del Cafe Verde y Rendimiento", ln=True)
+    pdf.set_font("Arial", "", 9)
+    pdf.cell(0, 5, f"Lote / Finca: {nombre} | Variedad: {variedad} | Proceso: {proceso}", ln=True)
+    pdf.cell(0, 5, f"Densidad: {densidad} g/L | Humedad: {humedad}% | Masa Carga: {peso_c}g", ln=True)
+    pdf.cell(0, 5, f"Masa Obtenida: {peso_t}g | Merma: {merma}% | DTR Objetivo: {dtr}%", ln=True)
+    pdf.ln(3)
     
-    pdf.set_font("Arial", "B", 11)
-    pdf.cell(0, 7, "2. Bitacora y Registro Termico", ln=True)
+    # 2. Generar la Gráfica con Matplotlib para el PDF
+    fig_plt, ax1 = plt.subplots(figsize=(8, 3.8), dpi=150)
     
-    pdf.set_font("Arial", "B", 8)
-    pdf.cell(15, 6, "Min", border=1)
-    pdf.cell(20, 6, "BT (C)", border=1)
-    pdf.cell(22, 6, "RoR (C/m)", border=1)
-    pdf.cell(18, 6, "RPM", border=1)
-    pdf.cell(18, 6, "Aire %", border=1)
-    pdf.cell(18, 6, "Gas %", border=1)
-    pdf.cell(80, 6, "Fase / Hito SCA", border=1, ln=True)
+    ax1.plot(df_data["Minuto"], df_data["Temp Grano (°C)"], color='firebrick', marker='o', linewidth=2, label='BT (°C)')
+    ax1.set_xlabel('Tiempo (Minutos)', fontsize=8)
+    ax1.set_ylabel('Temperatura BT (°C)', color='firebrick', fontsize=8)
+    ax1.set_ylim(50, 230)
     
-    pdf.set_font("Arial", "", 8)
+    max_m = max(df_data["Minuto"]) if len(df_data) > 0 else 12.0
+    ax1.set_xticks([x/2.0 for x in range(0, int(max_m*2)+2)])
+    ax1.set_yticks(range(50, 240, 10))
+    ax1.grid(True, linestyle='--', alpha=0.5)
+    
+    # Anotaciones de Hitos en el gráfico del PDF
+    for i, row in df_data.iterrows():
+        milestone = str(row["Fase / Hito SCA"]).split(". ")[-1] if ". " in str(row["Fase / Hito SCA"]) else str(row["Fase / Hito SCA"])
+        ax1.annotate(milestone[:14], (row["Minuto"], row["Temp Grano (°C)"]),
+                     textcoords="offset points", xytext=(0,4), ha='center', fontsize=4.5, color='darkred', rotation=25)
+    
+    ax2 = ax1.twinx()
+    ror_vals = [0.0 if r in ["-", "TP"] else float(r) for r in df_data["RoR (°C/min)"]]
+    ax2.plot(df_data["Minuto"], ror_vals, color='royalblue', linestyle='--', marker='s', label='RoR (°C/min)')
+    ax2.plot(df_data["Minuto"], df_data["RPM Tambor"], color='forestgreen', linestyle=':', marker='^', label='RPM')
+    ax2.set_ylabel('RoR (°C/min) / RPM', color='black', fontsize=8)
+    ax2.set_ylim(0, 100)
+    ax2.set_yticks(range(0, 110, 10))
+    
+    lines1, labels1 = ax1.get_legend_handles_labels()
+    lines2, labels2 = ax2.get_legend_handles_labels()
+    ax1.legend(lines1 + lines2, labels1 + labels2, loc='upper left', fontsize=7)
+    
+    plt.title('Curva de Tueste, RoR y RPM', fontsize=9)
+    plt.tight_layout()
+    
+    img_buf = io.BytesIO()
+    plt.savefig(img_buf, format='png', dpi=150)
+    img_buf.seek(0)
+    plt.close(fig_plt)
+    
+    with tempfile.NamedTemporaryFile(suffix='.png', delete=False) as tmp:
+        tmp.write(img_buf.getvalue())
+        tmp_path = tmp.name
+        
+    # Renderizar Imagen de la Gráfica en el PDF
+    pdf.set_font("Arial", "B", 10)
+    pdf.cell(0, 6, "2. Grafica de Tueste (BT, RoR y RPM)", ln=True)
+    pdf.image(tmp_path, x=10, y=pdf.get_y(), w=190)
+    
+    pdf.set_y(pdf.get_y() + 92)
+    
+    # 3. Bitácora Tabulada
+    pdf.set_font("Arial", "B", 10)
+    pdf.cell(0, 6, "3. Bitacora y Registro Termico", ln=True)
+    
+    pdf.set_font("Arial", "B", 7)
+    pdf.cell(12, 5, "Min", border=1)
+    pdf.cell(16, 5, "BT (C)", border=1)
+    pdf.cell(18, 5, "RoR(C/m)", border=1)
+    pdf.cell(14, 5, "RPM", border=1)
+    pdf.cell(15, 5, "Aire%", border=1)
+    pdf.cell(15, 5, "Gas%", border=1)
+    pdf.cell(100, 5, "Fase / Hito SCA", border=1, ln=True)
+    
+    pdf.set_font("Arial", "", 7)
     for idx, row in df_data.iterrows():
-        pdf.cell(15, 5, str(row["Minuto"]), border=1)
-        pdf.cell(20, 5, str(row["Temp Grano (°C)"]), border=1)
-        pdf.cell(22, 5, str(row["RoR (°C/min)"]), border=1)
-        pdf.cell(18, 5, str(row["RPM Tambor"]), border=1)
-        pdf.cell(18, 5, str(row["Flujo Aire (%)"]), border=1)
-        pdf.cell(18, 5, str(row["Potencia Gas (%)"]), border=1)
-        pdf.cell(80, 5, str(row["Fase / Hito SCA"])[:40], border=1, ln=True)
+        if pdf.get_y() > 270:
+            pdf.add_page()
+            pdf.set_font("Arial", "B", 7)
+            pdf.cell(12, 5, "Min", border=1)
+            pdf.cell(16, 5, "BT (C)", border=1)
+            pdf.cell(18, 5, "RoR(C/m)", border=1)
+            pdf.cell(14, 5, "RPM", border=1)
+            pdf.cell(15, 5, "Aire%", border=1)
+            pdf.cell(15, 5, "Gas%", border=1)
+            pdf.cell(100, 5, "Fase / Hito SCA", border=1, ln=True)
+            pdf.set_font("Arial", "", 7)
+            
+        pdf.cell(12, 4.5, str(row["Minuto"]), border=1)
+        pdf.cell(16, 4.5, str(row["Temp Grano (°C)"]), border=1)
+        pdf.cell(18, 4.5, str(row["RoR (°C/min)"]), border=1)
+        pdf.cell(14, 4.5, str(row["RPM Tambor"]), border=1)
+        pdf.cell(15, 4.5, str(row["Flujo Aire (%)"]), border=1)
+        pdf.cell(15, 4.5, str(row["Potencia Gas (%)"]), border=1)
+        pdf.cell(100, 4.5, str(row["Fase / Hito SCA"])[:50], border=1, ln=True)
         
     return pdf.output(dest='S').encode('latin-1')
 
@@ -220,7 +345,7 @@ with col_m2:
     )
     
     st.download_button(
-        label="📄 Descargar Ficha de Tueste en PDF",
+        label="📄 Descargar Ficha de Tueste en PDF (con Gráfica)",
         data=pdf_bytes,
         file_name=f"Reporte_Tueste_{nombre_cafe.replace(' ', '_')}.pdf",
         mime="application/pdf"
